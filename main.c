@@ -22,12 +22,8 @@ int main(int argc, char *argv[]) {
     int fd = open(argv[1], O_RDONLY); //open a file for reading
     kill(mypid,SIGSTOP);
 
-    close(0);
-    fprintf(stderr, "Process %d closed FD 0\n", mypid);
-    kill(mypid, SIGSTOP);
-    
-    dup(fd);
-    fprintf(stderr, "Process %d called dup(%d)\n", mypid, fd);
+    dup2(fd,0);
+    fprintf(stderr, "Process %d called dup2(%d,0)\n", mypid, fd);
     kill(mypid, SIGSTOP);
 
     close(fd);
