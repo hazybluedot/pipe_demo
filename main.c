@@ -15,22 +15,16 @@ int main(int argc, char *argv[]) {
     ssize_t bytes_read;
     pid_t mypid = getpid();
 
-    fprintf(stderr, "Process %d opened file %s for reading\n", mypid, argv[1]);
-    int fd = open(argv[1], O_RDONLY); //open a file for reading
-    if (fd < 0) {
-	perror("open");
+    fprintf(stderr, "Parent %d about to call pipe()\n", mypid);
+    kill(mypid, SIGSTOP);
+    int pfd[2];
+    if (pipe(pfd) < 0) {
+	perror("pipe");
 	exit(1);
     }
-    kill(mypid,SIGSTOP);
 
-    dup2(fd,0);
-    fprintf(stderr, "Process %d called dup2(%d,0)\n", mypid, fd);
+    fprintf(stderr, "Parent %d about to call fork()\n", mypid);
     kill(mypid, SIGSTOP);
-
-    close(fd);
-    fprintf(stderr, "Process %d called close(%d)\n", mypid, fd);
-    kill(mypid, SIGSTOP);
-    
     pid_t cpid = fork();
     if (cpid < 0) {
 	perror("fork");
@@ -40,12 +34,32 @@ int main(int argc, char *argv[]) {
 	mypid = getpid();
 	fprintf(stderr, "Child %d started\n", mypid);
 	kill(mypid,SIGSTOP);
+
+	close(pfd[1]); //unused end
+	dup2(pfd[0],0);
+	fprintf(stderr, "Process %d called close(%d) and dup2(%d,0)\n", mypid, pfd[1], pfd[0]);
+	kill(mypid, SIGSTOP);
+
+	close(pfd[0]);
+	fprintf(stderr, "Process %d called close(%d)\n", mypid, pfd[0]);
+	kill(mypid, SIGSTOP);
+    
 	execl("./child", "child", NULL);
 	perror("execl");
 	_Exit(1);
     } else {
 	//parent code
+	nbytes = sizeof(buffer);
+	while(bytes_read = read(0, buffer, nbytes)) { //read from standard in (FD 0)
+	    if (bytes_read == EOF) break;
+	    buffer[bytes_read] = 0;
+	    sprintf(out_buffer, "Retrieved %zu bytes from %d:\n%s", bytes_read, mypid, buffer);
+	    write(pfd[1], out_buffer, strlen(out_buffer)); //write to standard out (FD 1)
+	}
+	close(pfd[1]);
     }
+    kill(mypid,SIGSTOP);
+    wait();
     fprintf(stderr, "Process %d stopping before clean exit\n", mypid);
     kill(mypid, SIGSTOP);
     fprintf(stderr, "Process %d exiting cleanly\n", mypid);
