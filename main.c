@@ -16,7 +16,6 @@ int main(int argc, char *argv[]) {
     pid_t mypid = getpid();
 
     fprintf(stderr, "Parent %d about to call pipe()\n", mypid);
-    kill(mypid, SIGSTOP);
     int pfd[2];
     if (pipe(pfd) < 0) {
 	perror("pipe");
@@ -24,7 +23,6 @@ int main(int argc, char *argv[]) {
     }
 
     fprintf(stderr, "Parent %d about to call fork()\n", mypid);
-    kill(mypid, SIGSTOP);
     pid_t cpid = fork();
     if (cpid < 0) {
 	perror("fork");
@@ -33,22 +31,20 @@ int main(int argc, char *argv[]) {
 	//child code
 	mypid = getpid();
 	fprintf(stderr, "Child %d started\n", mypid);
-	kill(mypid,SIGSTOP);
 
 	close(pfd[1]); //unused end
 	dup2(pfd[0],0);
 	fprintf(stderr, "Process %d called close(%d) and dup2(%d,0)\n", mypid, pfd[1], pfd[0]);
-	kill(mypid, SIGSTOP);
 
 	close(pfd[0]);
 	fprintf(stderr, "Process %d called close(%d)\n", mypid, pfd[0]);
-	kill(mypid, SIGSTOP);
     
 	execl("./child", "child", NULL);
 	perror("execl");
 	_Exit(1);
     } else {
 	//parent code
+	close(pfd[0]); //close unused end
 	nbytes = sizeof(buffer);
 	while(bytes_read = read(0, buffer, nbytes)) { //read from standard in (FD 0)
 	    if (bytes_read == EOF) break;
