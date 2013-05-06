@@ -15,11 +15,12 @@ int main(int argc, char *argv[]) {
     ssize_t bytes_read;
     pid_t mypid = getpid();
 
-    fprintf(stderr, "Process started with PID %d\n", mypid);
-    kill(mypid, SIGSTOP);
-
     fprintf(stderr, "Process %d opened file %s for reading\n", mypid, argv[1]);
     int fd = open(argv[1], O_RDONLY); //open a file for reading
+    if (fd < 0) {
+	perror("open");
+	exit(1);
+    }
     kill(mypid,SIGSTOP);
 
     dup2(fd,0);
@@ -30,15 +31,21 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Process %d called close(%d)\n", mypid, fd);
     kill(mypid, SIGSTOP);
     
-    //Main IO loop 
-    nbytes = sizeof(buffer);
-    while(bytes_read = read(0, buffer, nbytes)) { //read from standard in (FD 0)
-	if (bytes_read == EOF) break;
-	buffer[bytes_read] = 0;
-	sprintf(out_buffer, "Retrieved %zu bytes:\n%s", bytes_read, buffer);
-	write(1, out_buffer, strlen(out_buffer)); //write to standard out (FD 1)
+    pid_t cpid = fork();
+    if (cpid < 0) {
+	perror("fork");
+	exit(1);
+    } else if (cpid == 0) {
+	//child code
+	mypid = getpid();
+	fprintf(stderr, "Child %d started\n", mypid);
+	kill(mypid,SIGSTOP);
+	execl("./child", "child", NULL);
+	perror("execl");
+	_Exit(1);
+    } else {
+	//parent code
     }
-    //End Main IO loop
     fprintf(stderr, "Process %d stopping before clean exit\n", mypid);
     kill(mypid, SIGSTOP);
     fprintf(stderr, "Process %d exiting cleanly\n", mypid);
