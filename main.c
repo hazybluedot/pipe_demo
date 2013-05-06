@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <fcntl.h>
 #include <signal.h>
 
 #define BUF_SIZE 4096
@@ -17,6 +18,22 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Process started with PID %d\n", mypid);
     kill(mypid, SIGSTOP);
 
+    fprintf(stderr, "Process %d opened file %s for reading\n", mypid, argv[1]);
+    int fd = open(argv[1], O_RDONLY); //open a file for reading
+    kill(mypid,SIGSTOP);
+
+    close(0);
+    fprintf(stderr, "Process %d closed FD 0\n", mypid);
+    kill(mypid, SIGSTOP);
+    
+    dup(fd);
+    fprintf(stderr, "Process %d called dup(%d)\n", mypid, fd);
+    kill(mypid, SIGSTOP);
+
+    close(fd);
+    fprintf(stderr, "Process %d called close(%d)\n", mypid, fd);
+    kill(mypid, SIGSTOP);
+    
     //Main IO loop 
     nbytes = sizeof(buffer);
     while(bytes_read = read(0, buffer, nbytes)) { //read from standard in (FD 0)
